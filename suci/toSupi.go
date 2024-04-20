@@ -1,7 +1,3 @@
-// Copyright 2019 Communication Service/Software Laboratory, National Chiao Tung University (free5gc.org)
-//
-// SPDX-License-Identifier: Apache-2.0
-
 package suci
 
 import (
@@ -18,19 +14,12 @@ import (
 	"math"
 	"math/big"
 	"math/bits"
-	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/curve25519"
 
 	"github.com/lakshya-chopra/util_3gpp/logger"
 )
-
-type SuciProfile struct {
-	ProtectionScheme string `yaml:"ProtectionScheme,omitempty"`
-	PrivateKey       string `yaml:"PrivateKey,omitempty"`
-	PublicKey        string `yaml:"PublicKey,omitempty"`
-}
 
 // profile A.
 const ProfileAMacKeyLen = 32 // octets
@@ -46,8 +35,6 @@ const ProfileBIcbLen = 16    // octets
 const ProfileBMacLen = 8     // octets
 const ProfileBHashLen = 32   // octets
 
-/* logs only in the case of error, if no errors occur, then a nice table is printed */
-
 func CompressKey(uncompressed []byte, y *big.Int) []byte {
 	compressed := uncompressed[0:33]
 	if y.Bit(0) == 1 { // 0x03
@@ -55,14 +42,13 @@ func CompressKey(uncompressed []byte, y *big.Int) []byte {
 	} else { // 0x02
 		compressed[0] = 0x02
 	}
+	// fmt.Printf("compressed: %x\n", compressed)
 	return compressed
 }
 
 // modified from https://stackoverflow.com/questions/46283760/
 // how-to-uncompress-a-single-x9-62-compressed-point-on-an-ecdh-p256-curve-in-go.
-
 func uncompressKey(compressedBytes []byte, priv []byte) (*big.Int, *big.Int) {
-
 	// Split the sign byte from the rest
 	signByte := uint(compressedBytes[0])
 	xBytes := compressedBytes[1:]
@@ -89,7 +75,7 @@ func uncompressKey(compressedBytes []byte, priv []byte) (*big.Int, *big.Int) {
 	// find the square root mod P
 	y := new(big.Int).ModSqrt(ySquared, c.P)
 	if y == nil {
-		// If this happens then you're dealing with an invalid point. (Used to mitigate the Invalid curve attack)
+		// If this happens then you're dealing with an invalid point.
 		logger.Util3GPPLog.Errorln("Uncompressed key with invalid point")
 		return nil, nil
 	}
@@ -110,21 +96,19 @@ func HmacSha256(input, macKey []byte, macLen int) []byte {
 	}
 	macVal := h.Sum(nil)
 	macTag := macVal[:macLen]
+	// fmt.Printf("macVal: %x\nmacTag: %x\n", macVal, macTag)
 	return macTag
 }
 
 func Aes128ctr(input, encKey, icb []byte) []byte {
 	output := make([]byte, len(input))
 	block, err := aes.NewCipher(encKey)
-
 	if err != nil {
 		log.Printf("AES128 CTR error %+v", err)
 	}
 	stream := cipher.NewCTR(block, icb)
 	stream.XORKeyStream(output, input)
-
 	// fmt.Printf("aes input: %x %x %x\naes output: %x\n", input, encKey, icb, output)
-
 	return output
 }
 
@@ -154,7 +138,6 @@ func swapNibbles(input []byte) []byte {
 }
 
 func calcSchemeResult(decryptPlainText []byte, supiType string) string {
-
 	var schemeResult string
 	if supiType == typeIMSI {
 		schemeResult = hex.EncodeToString(swapNibbles(decryptPlainText))
@@ -168,9 +151,7 @@ func calcSchemeResult(decryptPlainText []byte, supiType string) string {
 }
 
 func profileA(input, supiType, privateKey string) (string, error) {
-
-	// logger.Util3GPPLog.Infoln("SuciToSupi Profile A")
-
+	logger.Util3GPPLog.Infoln("SuciToSupi Profile A")
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
 		logger.Util3GPPLog.Errorln("hex DecodeString error")
@@ -179,11 +160,10 @@ func profileA(input, supiType, privateKey string) (string, error) {
 
 	// for X25519(profile A), q (The number of elements in the field Fq) = 2^255 - 19
 	// len(pubkey) is therefore ceil((log2q)/8+1) = 32octets
-
 	ProfileAPubKeyLen := 32
 	if len(s) < ProfileAPubKeyLen+ProfileAMacLen {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
-		return "", fmt.Errorf("suci input too short")
+		return "", fmt.Errorf("suci input too short\n")
 	}
 
 	decryptMac := s[len(s)-ProfileAMacLen:]
@@ -193,7 +173,6 @@ func profileA(input, supiType, privateKey string) (string, error) {
 
 	// test data from TS33.501 Annex C.4
 	// aHNPriv, _ := hex.DecodeString("c53c2208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d")
-
 	var aHNPriv []byte
 	if aHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
 		log.Printf("Decode error: %+v", err)
@@ -212,18 +191,15 @@ func profileA(input, supiType, privateKey string) (string, error) {
 	decryptEncKey := kdfKey[:ProfileAEncKeyLen]
 	decryptIcb := kdfKey[ProfileAEncKeyLen : ProfileAEncKeyLen+ProfileAIcbLen]
 	decryptMacKey := kdfKey[len(kdfKey)-ProfileAMacKeyLen:]
-
 	// fmt.Printf("\ndeEncKey(size%d): %x\ndeMacKey: %x\ndeIcb: %x\n", len(decryptEncKey), decryptEncKey, decryptMacKey,
 	// decryptIcb)
 
 	decryptMacTag := HmacSha256(decryptCipherText, decryptMacKey, ProfileAMacLen)
 	if bytes.Equal(decryptMacTag, decryptMac) {
-
-		// logger.Util3GPPLog.Infoln("decryption MAC match")
-
+		logger.Util3GPPLog.Infoln("decryption MAC match")
 	} else {
 		logger.Util3GPPLog.Errorln("decryption MAC failed")
-		return "", fmt.Errorf("decryption MAC failed")
+		return "", fmt.Errorf("decryption MAC failed\n")
 	}
 
 	decryptPlainText := Aes128ctr(decryptCipherText, decryptEncKey, decryptIcb)
@@ -232,9 +208,7 @@ func profileA(input, supiType, privateKey string) (string, error) {
 }
 
 func profileB(input, supiType, privateKey string) (string, error) {
-
-	// logger.Util3GPPLog.Infoln("SuciToSupi Profile B")
-
+	logger.Util3GPPLog.Infoln("SuciToSupi Profile B")
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
 		logger.Util3GPPLog.Errorln("hex DecodeString error")
@@ -251,23 +225,21 @@ func profileB(input, supiType, privateKey string) (string, error) {
 		uncompressed = true
 	} else {
 		logger.Util3GPPLog.Errorln("input error")
-		return "", fmt.Errorf("suci input error")
+		return "", fmt.Errorf("suci input error\n")
 	}
 
 	// fmt.Printf("len:%d %d\n", len(s), ProfileBPubKeyLen + ProfileBMacLen)
 	if len(s) < ProfileBPubKeyLen+ProfileBMacLen {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
-		return "", fmt.Errorf("suci input too short")
+		return "", fmt.Errorf("suci input too short\n")
 	}
 	decryptPublicKey := s[:ProfileBPubKeyLen]
 	decryptMac := s[len(s)-ProfileBMacLen:]
 	decryptCipherText := s[ProfileBPubKeyLen : len(s)-ProfileBMacLen]
-
 	// fmt.Printf("dePub: %x\ndeCiph: %x\ndeMac: %x\n", decryptPublicKey, decryptCipherText, decryptMac)
 
 	// test data from TS33.501 Annex C.4
 	// bHNPriv, _ := hex.DecodeString("F1AB1074477EBCC7F554EA1C5FC368B1616730155E0041AC447D6301975FECDA")
-
 	var bHNPriv []byte
 	if bHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
 		log.Printf("Decode error: %+v", err)
@@ -283,7 +255,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 		xUncompressed, yUncompressed = uncompressKey(decryptPublicKey, bHNPriv)
 		if xUncompressed == nil || yUncompressed == nil {
 			logger.Util3GPPLog.Errorln("Uncompressed key has invalid point")
-			return "", fmt.Errorf("key uncompression error")
+			return "", fmt.Errorf("Key uncompression error\n")
 		}
 	}
 	// fmt.Printf("xUncom: %x\nyUncom: %x\n", xUncompressed, yUncompressed)
@@ -308,12 +280,10 @@ func profileB(input, supiType, privateKey string) (string, error) {
 
 	decryptMacTag := HmacSha256(decryptCipherText, decryptMacKey, ProfileBMacLen)
 	if bytes.Equal(decryptMacTag, decryptMac) {
-
-		// logger.Util3GPPLog.Infoln("decryption MAC match")
-
+		logger.Util3GPPLog.Infoln("decryption MAC match")
 	} else {
 		logger.Util3GPPLog.Errorln("decryption MAC failed")
-		return "", fmt.Errorf("decryption MAC failed")
+		return "", fmt.Errorf("decryption MAC failed\n")
 	}
 
 	decryptPlainText := Aes128ctr(decryptCipherText, decryptEncKey, decryptIcb)
@@ -326,91 +296,60 @@ const supiTypePlace = 1
 const mccPlace = 2
 const mncPlace = 3
 const schemePlace = 5
-const HNPublicKeyIDPlace = 6
 
 const typeIMSI = "0"
 const imsiPrefix = "imsi-"
-const nullScheme = "0"
 const profileAScheme = "1"
 const profileBScheme = "2"
 
-func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
-
+func ToSupi(suci string, privateKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
-
-	// logger.Util3GPPLog.Infof("suciPart: %+v", suciPart)
+	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
 
 	suciPrefix := suciPart[0]
-
 	if suciPrefix == "imsi" || suciPrefix == "nai" {
-
 		// logger.Util3GPPLog.Infof("Got supi\n")
-		//no concealing, supi directly sent
-
 		return suci, nil
 
 	} else if suciPrefix == "suci" {
 		if len(suciPart) < 6 {
-			return "", fmt.Errorf("Suci with wrong format\n")
+			logger.Util3GPPLog.Errorf("Suci with wrong format\n")
+			return suci, fmt.Errorf("Suci with wrong format\n")
 		}
 
 	} else {
-		return "", fmt.Errorf("unknown suciPrefix [%s]", suciPrefix)
+		logger.Util3GPPLog.Errorf("Unknown suciPrefix\n")
+		return suci, fmt.Errorf("Unknown suciPrefix\n")
 	}
 
 	// logger.Util3GPPLog.Infof("scheme %s\n", suciPart[schemePlace])
-
 	scheme := suciPart[schemePlace]
 	mccMnc := suciPart[mccPlace] + suciPart[mncPlace]
 
 	supiPrefix := imsiPrefix
 	if suciPrefix == "suci" && suciPart[supiTypePlace] == typeIMSI {
 		supiPrefix = imsiPrefix
-
 		// logger.Util3GPPLog.Infof("SUPI type is IMSI\n")
-
 	}
 
-	if scheme == nullScheme { // NULL scheme
-		return supiPrefix + mccMnc + suciPart[len(suciPart)-1], nil
-	}
-
-	// (HNPublicKeyID-1) is the index of "suciProfiles" slices
-	keyIndex, err := strconv.Atoi(suciPart[HNPublicKeyIDPlace])
-	if err != nil {
-		return "", fmt.Errorf("parse HNPublicKeyID error: %+v", err)
-	}
-	if keyIndex > len(suciProfiles) {
-		return "", fmt.Errorf("keyIndex(%d) out of range(%d)", keyIndex, len(suciProfiles))
-	}
-
-	protectScheme := suciProfiles[keyIndex-1].ProtectionScheme
-	privateKey := suciProfiles[keyIndex-1].PrivateKey
-
-	if scheme != protectScheme {
-		return "", fmt.Errorf("protect Scheme mismatch [%s:%s]", scheme, protectScheme)
-	}
-
-	var res string //result
+	var res string
 
 	if scheme == profileAScheme {
-		if profileAResult, err := profileA(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey); err != nil {
+		profileAResult, err := profileA(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey)
+		if err != nil {
 			return "", err
 		} else {
-
 			res = supiPrefix + mccMnc + profileAResult
-
 		}
 	} else if scheme == profileBScheme {
-		if profileBResult, err := profileB(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey); err != nil {
+		profileBResult, err := profileB(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey)
+		if err != nil {
 			return "", err
 		} else {
-
 			res = supiPrefix + mccMnc + profileBResult
-
 		}
-	} else {
-		return "", fmt.Errorf("protect Scheme (%s) is not supported", scheme)
+	} else { // NULL scheme
+		res =  supiPrefix + mccMnc + suciPart[len(suciPart)-1]
 	}
 
 	// everything successful, print the logs
@@ -441,5 +380,6 @@ func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
 
 	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
 
-	return res, nil
+	return res,nil
+
 }
