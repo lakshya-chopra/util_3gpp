@@ -1,4 +1,4 @@
-module github.com/omec-project/util_3gpp
+module github.com/lakshya-chopra/util_3gpp
 
 go 1.21
 
