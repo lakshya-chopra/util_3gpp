@@ -23,7 +23,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/omec-project/util_3gpp/logger"
+	"github.com/lakshya-chopra/util_3gpp/logger"
 )
 
 type SuciProfile struct {
