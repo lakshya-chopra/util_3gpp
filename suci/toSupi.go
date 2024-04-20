@@ -24,43 +24,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 
 	"github.com/omec-project/util_3gpp/logger"
-
-	"os"
-
-	"github.com/jedib0t/go-pretty/v6/table"
 )
-
-func logTable(data map[string]string) {
-
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-
-	t.SetTitle("Coran Labs Private & Public Key configured")
-
-	t.SetIndexColumn(1)
-
-	t.AppendRow([]interface{}{"SUCI successfully received", data["suci"]})
-	t.AppendRow([]interface{}{"SUCI prefix", data["suci_prefix"]})
-	t.AppendRow([]interface{}{"Scheme", data["scheme"]})
-	t.AppendRow([]interface{}{"MCC_MNC", data["mccMnc"]})
-
-	t.AppendSeparator()
-	t.AppendRow([]interface{}{"KDF used", "AnsiX963KDF"})
-	t.AppendRow([]interface{}{"Mac USED", "HMAC-SHA256"})
-	t.AppendSeparator()
-
-	t.AppendRow([]interface{}{"Shared key generated", "✓"})
-	t.AppendRow([]interface{}{"Decryption MAC matched", "✓"})
-
-	t.AppendRow([]interface{}{"SUPI Prefix", data["supi_prefix"]})
-	t.AppendRow([]interface{}{"SUPI generated successfully", "✅"})
-	t.AppendRow([]interface{}{"SUPI value", data["supi"]})
-	t.AppendFooter(table.Row{"", "Completed! "})
-
-	// t.SetStyle(table.StyleColoredBright)
-	t.Render()
-
-}
 
 type SuciProfile struct {
 	ProtectionScheme string `yaml:"ProtectionScheme,omitempty"`
@@ -372,18 +336,11 @@ const profileBScheme = "2"
 
 func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
 
-	//create a string map
-	supi_data := make(map[string]string)
-
 	suciPart := strings.Split(suci, "-")
-
-	supi_data["suci"] = suci //1
 
 	// logger.Util3GPPLog.Infof("suciPart: %+v", suciPart)
 
 	suciPrefix := suciPart[0]
-
-	supi_data["suci_prefix"] = suciPrefix //2
 
 	if suciPrefix == "imsi" || suciPrefix == "nai" {
 
@@ -406,9 +363,6 @@ func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
 	scheme := suciPart[schemePlace]
 	mccMnc := suciPart[mccPlace] + suciPart[mncPlace]
 
-	supi_data["scheme"] = scheme //3
-	supi_data["mccMnc"] = mccMnc //4
-
 	supiPrefix := imsiPrefix
 	if suciPrefix == "suci" && suciPart[supiTypePlace] == typeIMSI {
 		supiPrefix = imsiPrefix
@@ -416,8 +370,6 @@ func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
 		// logger.Util3GPPLog.Infof("SUPI type is IMSI\n")
 
 	}
-
-	supi_data["supi_prefix"] = supiPrefix //5
 
 	if scheme == nullScheme { // NULL scheme
 		return supiPrefix + mccMnc + suciPart[len(suciPart)-1], nil
@@ -439,30 +391,55 @@ func ToSupi(suci string, suciProfiles []SuciProfile) (string, error) {
 		return "", fmt.Errorf("protect Scheme mismatch [%s:%s]", scheme, protectScheme)
 	}
 
+	var res string //result
+
 	if scheme == profileAScheme {
 		if profileAResult, err := profileA(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey); err != nil {
 			return "", err
 		} else {
 
-			//everything is successful , pass the data
-
-			supi_data["supi"] = supiPrefix + mccMnc + profileAResult //6
-			logTable(supi_data)
-
-			return supiPrefix + mccMnc + profileAResult, nil
+			res = supiPrefix + mccMnc + profileAResult
 
 		}
 	} else if scheme == profileBScheme {
 		if profileBResult, err := profileB(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey); err != nil {
 			return "", err
 		} else {
-			supi_data["supi"] = supiPrefix + mccMnc + profileBResult //6
-			logTable(supi_data)
 
-			return supiPrefix + mccMnc + profileBResult, nil
+			res = supiPrefix + mccMnc + profileBResult
 
 		}
 	} else {
 		return "", fmt.Errorf("protect Scheme (%s) is not supported", scheme)
 	}
+
+	// everything successful, print the logs
+
+	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+	logger.Util3GPPLog.Infof("| %-63s |\n", "Coran Labs Private & Public Key configured")
+	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received", suciPart)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", scheme)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MccMnc", mccMnc)
+
+	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MAC used", "HMAC-SHA256")
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "KDF used", "ANSI X9.63")
+
+	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
+
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Shared Key generated", "✓")
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Decryption Mac matched", "✓")
+
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUPI prefix", supiPrefix)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s|\n", "SUPI generated successfully", "✅")
+
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n\n", "SUPI value", res)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "", "COMPLETED!")
+
+	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+
+	return res, nil
 }
