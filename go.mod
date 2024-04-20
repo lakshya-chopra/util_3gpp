@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/lakshya-chopra/util_3gpp v1.1.3
 	github.com/omec-project/logger_conf v1.1.1
 	github.com/omec-project/logger_util v1.2.0
 	github.com/omec-project/openapi v1.2.0
