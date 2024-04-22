@@ -354,11 +354,11 @@ func ToSupi(suci string, privateKey string) (string, error) {
 
 	// everything successful, print the logs
 
-	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 	logger.Util3GPPLog.Infof("| %-63s |\n", "Coran Labs Private & Public Key configured")
-	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
-	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received", suciPart)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received","")
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", scheme)
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MccMnc", mccMnc)
 
