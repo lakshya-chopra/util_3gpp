@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/lakshya-chopra/util_3gpp/logger"
+	"github.com/Nikhil690/util_3gpp/logger"
 )
 
 // profile A.
