@@ -362,7 +362,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", scheme)
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MccMnc", mccMnc)
 
-	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MAC used", "HMAC-SHA256")
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "KDF used", "ANSI X9.63")
@@ -378,7 +378,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n\n", "SUPI value", res)
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "", "COMPLETED!")
 
-	fmt.Printf("+" + strings.Repeat("-", 70) + "+\n")
+	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
 	return res,nil
 
