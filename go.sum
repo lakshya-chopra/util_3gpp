@@ -1,3 +1,5 @@
+github.com/Nikhil690/util_3gpp v1.1.2 h1:CI19Se6tDip2Z9JXGrsjR6O7o77+vEJaZfZlEEBpDqA=
+github.com/Nikhil690/util_3gpp v1.1.2/go.mod h1:qWYpdpVTtqaX66bD7mFGzAbDJFrt8bN8ZIDWfh0Giqk=
 github.com/antonfisher/nested-logrus-formatter v1.3.1 h1:NFJIr+pzwv5QLHTPyKz9UMEoHck02Q9L0FP13b/xSbQ=
 github.com/antonfisher/nested-logrus-formatter v1.3.1/go.mod h1:6WTfyWFkBc9+zyBaKIqRrg/KwMqBbodBjgbHjDz7zjA=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=

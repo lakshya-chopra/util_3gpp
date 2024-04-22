@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/lakshya-chopra/util_3gpp v1.1.3
 	github.com/omec-project/logger_conf v1.1.1
 	github.com/omec-project/logger_util v1.2.0
 	github.com/omec-project/openapi v1.2.0
@@ -13,6 +12,7 @@ require (
 )
 
 require (
+	github.com/Nikhil690/util_3gpp v1.1.2 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.7.3 // indirect
