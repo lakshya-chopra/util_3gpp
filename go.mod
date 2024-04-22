@@ -3,6 +3,7 @@ module github.com/lakshya-chopra/util_3gpp
 go 1.21
 
 require (
+	github.com/Nikhil690/util_3gpp v1.1.2
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/omec-project/logger_conf v1.1.1
 	github.com/omec-project/logger_util v1.2.0
@@ -12,7 +13,6 @@ require (
 )
 
 require (
-	github.com/Nikhil690/util_3gpp v1.1.2 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.7.3 // indirect
@@ -22,7 +22,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
