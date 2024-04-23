@@ -160,13 +160,14 @@ func profileA(input, supiType, privateKey string) (string, error) {
 
 	// for X25519(profile A), q (The number of elements in the field Fq) = 2^255 - 19
 	// len(pubkey) is therefore ceil((log2q)/8+1) = 32octets
+
 	ProfileAPubKeyLen := 32
 	if len(s) < ProfileAPubKeyLen+ProfileAMacLen {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
 		return "", fmt.Errorf("suci input too short\n")
 	}
 
-	decryptMac := s[len(s)-ProfileAMacLen:]
+	decryptMac := s[len(s)-ProfileAMacLen:] 
 	decryptPublicKey := s[:ProfileAPubKeyLen]
 	decryptCipherText := s[ProfileAPubKeyLen : len(s)-ProfileAMacLen]
 	// fmt.Printf("dePub: %x\ndeCiph: %x\ndeMac: %x\n", decryptPublicKey, decryptCipherText, decryptMac)
@@ -179,7 +180,7 @@ func profileA(input, supiType, privateKey string) (string, error) {
 	} else {
 		aHNPriv = aHNPrivTmp
 	}
-	var decryptSharedKey []byte
+	var decryptSharedKey []byte //symmetric key for encryption.
 	if decryptSharedKeyTmp, err := curve25519.X25519(aHNPriv, []byte(decryptPublicKey)); err != nil {
 		log.Printf("X25519 error: %+v", err)
 	} else {
@@ -208,7 +209,9 @@ func profileA(input, supiType, privateKey string) (string, error) {
 }
 
 func profileB(input, supiType, privateKey string) (string, error) {
+	
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile B")
+
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
 		logger.Util3GPPLog.Errorln("hex DecodeString error")
@@ -258,7 +261,6 @@ func profileB(input, supiType, privateKey string) (string, error) {
 			return "", fmt.Errorf("Key uncompression error\n")
 		}
 	}
-	// fmt.Printf("xUncom: %x\nyUncom: %x\n", xUncompressed, yUncompressed)
 
 	// x-coordinate is the shared key
 	decryptSharedKey, _ := elliptic.P256().ScalarMult(xUncompressed, yUncompressed, bHNPriv)
@@ -292,7 +294,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 }
 
 // suci-0(SUPI type)-mcc-mnc-routingIndentifier-protectionScheme-homeNetworkPublicKeyIdentifier-schemeOutput.
-const supiTypePlace = 1
+const supiTypePlace = 1 //their indices.
 const mccPlace = 2
 const mncPlace = 3
 const schemePlace = 5
