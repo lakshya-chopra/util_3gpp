@@ -122,7 +122,7 @@ func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulati
 
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile C")
 
-	// concealed part of suci, here we only have MAC tag & a CipherTEXT
+	/* concealed part of suci, here we only have MAC tag & a CipherTEXT */
 
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
@@ -139,7 +139,8 @@ func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulati
 	}
 
 	decryptCipherText := s[:ProfileCCipherLen]
-	decryptMac := s[len(s)-ProfileCCipherLen:]
+	concealedMsin := s[ProfileCCipherLen : len(s)-ProfileCMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
+	decryptMac := s[len(s)-ProfileCCipherLen:]                    //get the mac tag sent by the UE.
 
 	//getting the Prof C Priv Key
 	var cHNPriv []byte
@@ -185,7 +186,7 @@ func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulati
 
 	}
 
-	decryptPlainText := Aes128ctr(decryptCipherText, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
+	decryptPlainText := Aes128ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
 
 	return calcSchemeResult(decryptPlainText, supiType), nil
 

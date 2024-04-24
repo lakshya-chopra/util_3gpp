@@ -151,6 +151,7 @@ func calcSchemeResult(decryptPlainText []byte, supiType string) string {
 }
 
 func profileA(input, supiType, privateKey string) (string, error) {
+	
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile A")
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
