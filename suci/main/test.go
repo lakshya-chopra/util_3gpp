@@ -32,6 +32,8 @@ const typeIMSI = "0"
 const imsiPrefix = "imsi-"
 const profileCScheme = "3"
 
+// suci-0(SUPI type)-mcc-mnc-routingIndentifier-protectionScheme-schemeOutput:
+// schemeOutput : cipher + msin + mac tag
 // indices of these params in the suci string
 const supiTypePlace = 1
 const mccPlace = 2
@@ -118,7 +120,7 @@ func calcSchemeResult(decryptPlainText []byte, supiType string) string {
 	return schemeResult
 }
 
-func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
+func profileC(input string, supiType string, privateKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
 
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile C")
 
@@ -142,7 +144,7 @@ func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulati
 	concealedMsin := s[ProfileCCipherLen : len(s)-ProfileCMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
 	decryptMac := s[len(s)-ProfileCCipherLen:]                    //get the mac tag sent by the UE.
 
-	//getting the Prof C Priv Key
+	//getting the Prof C  Home Network Priv Key
 	var cHNPriv []byte
 	if cHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
 		log.Printf("Decode error: %+v", err)
@@ -150,7 +152,7 @@ func profileC(input, supiType, privateKey string, oqs_client *oqs.KeyEncapsulati
 		cHNPriv = cHNPrivTmp
 	}
 
-	fmt.Printf("%v", cHNPriv)
+	fmt.Printf("%v", cHNPriv) //not used anywhere, because we only use our OQS client object.
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
 
@@ -225,11 +227,11 @@ func ToSupi(suci string, privateKey string, oqs_client *oqs.KeyEncapsulation) (s
 	var res string
 
 	if scheme == profileCScheme {
-		profileAResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, oqs_client)
+		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, oqs_client)
 		if err != nil {
 			return "", err
 		} else {
-			res = supiPrefix + mccMnc + profileAResult
+			res = supiPrefix + mccMnc + profileCResult
 		}
 	} else { // NULL scheme
 		res = supiPrefix + mccMnc + suciPart[len(suciPart)-1]

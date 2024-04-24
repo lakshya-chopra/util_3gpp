@@ -151,7 +151,7 @@ func calcSchemeResult(decryptPlainText []byte, supiType string) string {
 }
 
 func profileA(input, supiType, privateKey string) (string, error) {
-	
+
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile A")
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
@@ -168,13 +168,15 @@ func profileA(input, supiType, privateKey string) (string, error) {
 		return "", fmt.Errorf("suci input too short\n")
 	}
 
-	decryptMac := s[len(s)-ProfileAMacLen:] 
+	decryptMac := s[len(s)-ProfileAMacLen:]
 	decryptPublicKey := s[:ProfileAPubKeyLen]
-	decryptCipherText := s[ProfileAPubKeyLen : len(s)-ProfileAMacLen]
+	decryptCipherText := s[ProfileAPubKeyLen : len(s)-ProfileAMacLen] //here cipher text: concealed MSIN
+
 	// fmt.Printf("dePub: %x\ndeCiph: %x\ndeMac: %x\n", decryptPublicKey, decryptCipherText, decryptMac)
 
 	// test data from TS33.501 Annex C.4
 	// aHNPriv, _ := hex.DecodeString("c53c2208b61860b06c62e5406a7b330c2b577aa5558981510d128247d38bd1d")
+
 	var aHNPriv []byte
 	if aHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
 		log.Printf("Decode error: %+v", err)
@@ -210,7 +212,7 @@ func profileA(input, supiType, privateKey string) (string, error) {
 }
 
 func profileB(input, supiType, privateKey string) (string, error) {
-	
+
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile B")
 
 	s, hexDecodeErr := hex.DecodeString(input)
@@ -352,7 +354,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 			res = supiPrefix + mccMnc + profileBResult
 		}
 	} else { // NULL scheme
-		res =  supiPrefix + mccMnc + suciPart[len(suciPart)-1]
+		res = supiPrefix + mccMnc + suciPart[len(suciPart)-1]
 	}
 
 	// everything successful, print the logs
@@ -361,7 +363,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 	logger.Util3GPPLog.Infof("| %-63s |\n", "Coran Labs Private & Public Key configured")
 	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
-	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received","")
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received", "")
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", scheme)
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MccMnc", mccMnc)
 
@@ -383,6 +385,6 @@ func ToSupi(suci string, privateKey string) (string, error) {
 
 	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
-	return res,nil
+	return res, nil
 
 }
