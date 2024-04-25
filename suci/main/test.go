@@ -33,7 +33,7 @@ const imsiPrefix = "imsi-"
 const profileCScheme = "3"
 
 // suci-0(SUPI type)-mcc-mnc-routingIndentifier-protectionScheme-schemeOutput:
-// schemeOutput : cipher + msin + mac tag
+// schemeOutput : cipher + msin + mac tag (in Profile C)
 // indices of these params in the suci string
 const supiTypePlace = 1
 const mccPlace = 2
@@ -89,8 +89,7 @@ func swapNibbles(input []byte) []byte {
 	return output
 }
 
-func AnsiX963KDF(sharedKey []byte, profileEncKeyLen, profileMacKeyLen, profileHashLen int) []byte {
-
+func AnsiX963KDF(sharedKey, publicKey []byte, profileEncKeyLen, profileMacKeyLen, profileHashLen int) []byte {
 	var counter uint32 = 0x00000001
 	var kdfKey []byte
 	kdfRounds := int(math.Ceil(float64(profileEncKeyLen+profileMacKeyLen) / float64(profileHashLen)))
@@ -98,7 +97,7 @@ func AnsiX963KDF(sharedKey []byte, profileEncKeyLen, profileMacKeyLen, profileHa
 		counterBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(counterBytes, counter)
 		// fmt.Printf("counterBytes: %x\n", counterBytes)
-		tmpK := sha256.Sum256(append(append(sharedKey, counterBytes...))) //32 bytes.
+		tmpK := sha256.Sum256(append(append(sharedKey, counterBytes...), publicKey...))
 		sliceK := tmpK[:]
 		kdfKey = append(kdfKey, sliceK...)
 		// fmt.Printf("kdfKey in round %d: %x\n", i, kdfKey)
@@ -120,7 +119,7 @@ func calcSchemeResult(decryptPlainText []byte, supiType string) string {
 	return schemeResult
 }
 
-func profileC(input string, supiType string, privateKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
+func profileC(input string, supiType string, privateKey string, publicKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
 
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile C")
 
@@ -152,6 +151,14 @@ func profileC(input string, supiType string, privateKey string, oqs_client *oqs.
 		cHNPriv = cHNPrivTmp
 	}
 
+	var cHNPub []byte
+	if cHNPub, err := hex.DecodeString(publicKey); err != nil {
+		log.Printf("Decode error: %+v", err)
+	} else {
+		cHNPub = cHNPub
+	}
+
+
 	fmt.Printf("%v", cHNPriv) //not used anywhere, because we only use our OQS client object.
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
@@ -171,7 +178,7 @@ func profileC(input string, supiType string, privateKey string, oqs_client *oqs.
 
 	*/
 
-	kdfKey := AnsiX963KDF(decryptSharedKey, ProfileCEncKeyLen, ProfileCMacKeyLen, ProfileCHashLen)
+	kdfKey := AnsiX963KDF(decryptSharedKey, cHNPub, ProfileCEncKeyLen, ProfileCMacKeyLen, ProfileCHashLen)
 	decryptEncKey := kdfKey[:ProfileCEncKeyLen]
 	decryptIcb := kdfKey[ProfileCEncKeyLen : ProfileCEncKeyLen+ProfileCIcbLen]
 	decryptMacKey := kdfKey[len(kdfKey)-ProfileCMacKeyLen:]
@@ -194,7 +201,7 @@ func profileC(input string, supiType string, privateKey string, oqs_client *oqs.
 
 }
 
-func ToSupi(suci string, privateKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
+func ToSupi(suci string, privateKey string, publicKey string,oqs_client *oqs.KeyEncapsulation) (string, error) {
 	suciPart := strings.Split(suci, "-")
 	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
 
@@ -227,7 +234,7 @@ func ToSupi(suci string, privateKey string, oqs_client *oqs.KeyEncapsulation) (s
 	var res string
 
 	if scheme == profileCScheme {
-		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, oqs_client)
+		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey,publicKey, oqs_client)
 		if err != nil {
 			return "", err
 		} else {
