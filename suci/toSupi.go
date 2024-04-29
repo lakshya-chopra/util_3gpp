@@ -16,9 +16,10 @@ import (
 	"math/bits"
 	"strings"
 
-	"golang.org/x/crypto/curve25519"
-	"github.com/open-quantum-safe/liboqs-go/oqs"
 	"github.com/Nikhil690/util_3gpp/logger"
+	"golang.org/x/crypto/curve25519"
+
+	"github.com/cloudflare/circl/kem"
 )
 
 // profile A.
@@ -35,27 +36,42 @@ const ProfileBIcbLen = 16    // octets
 const ProfileBMacLen = 8     // octets
 const ProfileBHashLen = 32   // octets
 
-//profile C
+// profile C
 const ProfileCMacKeyLen = 32 // octets
 const ProfileCEncKeyLen = 16 // octets
 const ProfileCIcbLen = 16    // octets
 const ProfileCMacLen = 8     // octets
 const ProfileCHashLen = 32   // octets
 
+func hexStringToBytes(hexStr string) ([]byte, error) {
+	// Decode the hex string into a byte slice
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex string: %v", err)
+	}
+	return bytes, nil
+}
 
-// oqs_client : the object which decaps the secret & generates the HN pub/priv key, here the client is UDM.
-
-func decapsulate(oqs_client *oqs.KeyEncapsulation, cipherText []byte) ([]byte, error) {
+func decapsulate(privateKey string, cipherText []byte, scheme kem.Scheme) ([]byte, error) {
 
 	//client already has the private key so not needed. https://github.com/open-quantum-safe/liboqs-go/blob/main/oqs/oqs.go#L214
 
-	sharedSecret, err := oqs_client.DecapSecret(cipherText) // returns a byte slice, thank god!
+	// sharedSecret, err := oqs_client.DecapSecret(cipherText) // returns a byte slice, thank god!
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	return []byte{0}, err
+	// }
+
+	// return sharedSecret, nil
+
+	bytes_priv_key, err := hexStringToBytes(privateKey)
 	if err != nil {
-		log.Fatal(err)
-		return []byte{0}, err
+		return nil, fmt.Errorf("Error during decapsulation, %s",err)
 	}
 
-	return sharedSecret, nil
+	privateKey_, _ := scheme.UnmarshalBinaryPrivateKey(bytes_priv_key)
+
+	return scheme.Decapsulate(privateKey_, cipherText)
 
 }
 
@@ -320,7 +336,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 	return calcSchemeResult(decryptPlainText, supiType), nil
 }
 
-func profileC(input string, supiType string, privateKey string, publicKey string, oqs_client *oqs.KeyEncapsulation) (string, error) {
+func profileC(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 
 	logger.Util3GPPLog.Infoln("SuciToSupi Profile C")
 
@@ -342,7 +358,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	decryptCipherText := s[:ProfileCCipherLen]
 	concealedMsin := s[ProfileCCipherLen : len(s)-ProfileCMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
-	decryptMac := s[len(s) - ProfileCMacLen:]                    //get the mac tag sent by the UE.
+	decryptMac := s[len(s)-ProfileCMacLen:]                       //get the mac tag sent by the UE.
 
 	//getting the Prof C  Home Network Priv Key
 	var cHNPriv []byte
@@ -359,12 +375,11 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 		cHNPub = cHNPub
 	}
 
-
 	fmt.Printf("%v", cHNPriv) //not used anywhere, because we only use our OQS client object.
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
 
-	if decryptSharedKeyTmp, err := decapsulate(oqs_client, []byte(decryptCipherText)); err != nil {
+	if decryptSharedKeyTmp, err := decapsulate(privateKey, []byte(decryptCipherText), kem_scheme); err != nil {
 		log.Printf("Decaps error: %+v", err)
 	} else {
 		decryptSharedKey = decryptSharedKeyTmp
@@ -414,8 +429,6 @@ const profileAScheme = "1"
 const profileBScheme = "2"
 const profileCScheme = "3"
 
-
-
 func ToSupi(suci string, privateKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
 	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
@@ -462,7 +475,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 		} else {
 			res = supiPrefix + mccMnc + profileBResult
 		}
-	} else{ // NULL scheme
+	} else { // NULL scheme
 		res = supiPrefix + mccMnc + suciPart[len(suciPart)-1]
 	}
 
@@ -498,7 +511,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 
 }
 
-func ToSupi_2(suci string, privateKey string, publicKey string,oqs_client *oqs.KeyEncapsulation) (string, error) {
+func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 	suciPart := strings.Split(suci, "-")
 	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
 
@@ -531,7 +544,7 @@ func ToSupi_2(suci string, privateKey string, publicKey string,oqs_client *oqs.K
 	var res string
 
 	if scheme == profileCScheme {
-		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey,publicKey, oqs_client)
+		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme)
 		if err != nil {
 			return "", err
 		} else {
