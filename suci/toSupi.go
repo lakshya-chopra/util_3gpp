@@ -378,7 +378,8 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 		cHNPub = cHNPubTemp
 	}
 
-	fmt.Printf("%v", cHNPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nPrivate Key: %x\n", cHNPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nPublic Key: %x\n", cHNPub)
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
 
