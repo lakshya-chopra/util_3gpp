@@ -66,7 +66,7 @@ func decapsulate(privateKey string, cipherText []byte, scheme kem.Scheme) ([]byt
 
 	bytes_priv_key, err := hexStringToBytes(privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("Error during decapsulation, %s",err)
+		return nil, fmt.Errorf("Error during decapsulation, %s", err)
 	}
 
 	privateKey_, _ := scheme.UnmarshalBinaryPrivateKey(bytes_priv_key)
@@ -351,7 +351,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	// ProfileCPubKeyLen := 800 // 800 bytes : Kyber 512
 	ProfileCCipherLen := 768 //we use HMAC-SHA256 on our cipher text.
 
-	if len(s) < (ProfileCCipherLen + ProfileCMacKeyLen) {
+	if len(s) < (ProfileCCipherLen + ProfileCMacLen) {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
 		return "", fmt.Errorf("suci input too short\n")
 	}
