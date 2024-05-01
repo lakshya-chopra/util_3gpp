@@ -412,7 +412,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
 	fmt.Printf("\n %d", len(kdfKey))
 
-	decryptMacTag := HmacSha256(decryptCipherText, decryptMacKey, ProfileCMacLen)
+	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileCMacLen)
 
 	fmt.Printf("\n Decrypt mac tag: %x\n", decryptMacTag)
 	fmt.Printf("\n received mac tag: %x\n", decryptMac)
