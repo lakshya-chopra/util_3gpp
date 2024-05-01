@@ -403,9 +403,14 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	*/
 
 	kdfKey := AnsiX963KDF(decryptSharedKey, cHNPub, ProfileCEncKeyLen, ProfileCMacKeyLen, ProfileCHashLen)
+	fmt.Printf("\n %x \n", kdfKey)
+
 	decryptEncKey := kdfKey[:ProfileCEncKeyLen]
-	decryptIcb := kdfKey[ProfileCEncKeyLen : ProfileCEncKeyLen+ProfileCIcbLen]
-	decryptMacKey := kdfKey[len(kdfKey)-ProfileCMacKeyLen:]
+	decryptIcb := kdfKey[16:32]
+	decryptMacKey := kdfKey[32:]
+
+	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
+	fmt.Printf("\n %d", len(kdfKey))
 
 	decryptMacTag := HmacSha256(decryptCipherText, decryptMacKey, ProfileCMacLen)
 
