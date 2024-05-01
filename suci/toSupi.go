@@ -360,6 +360,11 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	concealedMsin := s[ProfileCCipherLen : len(s)-ProfileCMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
 	decryptMac := s[len(s)-ProfileCMacLen:]                       //get the mac tag sent by the UE.
 
+	fmt.Printf("\nCipher received: %s\n",decryptCipherText)
+	fmt.Printf("\nMSIN received: %s\n",concealedMsin)
+
+
+
 	//getting the Prof C  Home Network Priv Key
 	var cHNPriv []byte
 	if cHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
