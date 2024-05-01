@@ -338,7 +338,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 
 func profileC(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 
-	logger.Util3GPPLog.Infoln("SuciToSupi Profile C")
+	logger.Util3GPPLog.Infof("\nSuciToSupi Profile C\n")
 
 	/* concealed part of suci, here we only have MAC tag & a CipherTEXT */
 
@@ -369,10 +369,10 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	}
 
 	var cHNPub []byte
-	if cHNPub, err := hex.DecodeString(publicKey); err != nil {
+	if cHNPubTemp, err := hex.DecodeString(publicKey); err != nil {
 		log.Printf("Decode error: %+v", err)
 	} else {
-		cHNPub = cHNPub
+		cHNPub = cHNPubTemp
 	}
 
 	fmt.Printf("%v", cHNPriv) //not used anywhere, because we only use our OQS client object.
@@ -381,7 +381,10 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	if decryptSharedKeyTmp, err := decapsulate(privateKey, []byte(decryptCipherText), kem_scheme); err != nil {
 		log.Printf("Decaps error: %+v", err)
+		return "",fmt.Errorf("\n Decaps failed \n")
+
 	} else {
+		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
 		decryptSharedKey = decryptSharedKeyTmp
 	}
 
@@ -403,7 +406,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	if bytes.Equal(decryptMacTag, decryptMac) {
 
-		logger.Util3GPPLog.Infoln("decryption MAC match")
+		logger.Util3GPPLog.Infoln("decryption MAC match ✅")
 	} else {
 
 		logger.Util3GPPLog.Errorln("decryption MAC failed")
@@ -412,6 +415,8 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	}
 
 	decryptPlainText := Aes128ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
+
+	logger.Util3GPPLog.Infof("\nDecryption succcessful!\n")
 
 	return calcSchemeResult(decryptPlainText, supiType), nil
 
