@@ -36,12 +36,12 @@ const ProfileBIcbLen = 16    // octets
 const ProfileBMacLen = 8     // octets
 const ProfileBHashLen = 32   // octets
 
-// profile C
-const ProfileCMacKeyLen = 32 // octets
-const ProfileCEncKeyLen = 16 // octets
-const ProfileCIcbLen = 16    // octets
-const ProfileCMacLen = 8     // octets
-const ProfileCHashLen = 32   // octets
+// profile E
+const ProfileEMacKeyLen = 32 // octets
+const ProfileEEncKeyLen = 16 // octets
+const ProfileEIcbLen = 16    // octets
+const ProfileEMacLen = 8     // octets
+const ProfileEHashLen = 32   // octets
 
 func hexStringToBytes(hexStr string) ([]byte, error) {
 	// Decode the hex string into a byte slice
@@ -336,7 +336,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 	return calcSchemeResult(decryptPlainText, supiType), nil
 }
 
-func profileC(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
+func profileE(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 
 	logger.Util3GPPLog.Infof("\nSuciToSupi Profile C\n")
 
@@ -348,38 +348,38 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 		return "", hexDecodeErr
 	}
 
-	// ProfileCPubKeyLen := 800 // 800 bytes : Kyber 512
-	ProfileCCipherLen := 768 //we use HMAC-SHA256 on our cipher text.
+	// profileEPubKeyLen := 800 // 800 bytes : Kyber 512
+	ProfileECipherLen := 768 //we use HMAC-SHA256 on our cipher text.
 
-	if len(s) < (ProfileCCipherLen + ProfileCMacLen) {
+	if len(s) < (ProfileECipherLen + ProfileEMacLen) {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
 		return "", fmt.Errorf("suci input too short\n")
 	}
 
-	decryptCipherText := s[:ProfileCCipherLen]
-	concealedMsin := s[ProfileCCipherLen : len(s)-ProfileCMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
-	decryptMac := s[len(s)-ProfileCMacLen:]                       //get the mac tag sent by the UE.
+	decryptCipherText := s[:ProfileECipherLen]
+	concealedMsin := s[ProfileECipherLen : len(s)-ProfileEMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
+	decryptMac := s[len(s)-ProfileEMacLen:]                       //get the mac tag sent by the UE.
 
-	fmt.Printf("\nCipher received: %x\n", decryptCipherText)
-	fmt.Printf("\nMSIN received: %x\n", concealedMsin)
+	// fmt.Printf("\nCipher received: %x\n", decryptCipherText)
+	// fmt.Printf("\nMSIN received: %x\n", concealedMsin)
 
 	//getting the Prof C  Home Network Priv Key
-	var cHNPriv []byte
-	if cHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
+	// var cHNPriv []byte
+	// if cHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
+	// 	log.Printf("Decode error: %+v", err)
+	// } else {
+	// 	cHNPriv = cHNPrivTmp
+	// }
+
+	var eHNPub []byte
+	if eHNPubTemp, err := hex.DecodeString(publicKey); err != nil {
 		log.Printf("Decode error: %+v", err)
 	} else {
-		cHNPriv = cHNPrivTmp
+		eHNPub = eHNPubTemp
 	}
 
-	var cHNPub []byte
-	if cHNPubTemp, err := hex.DecodeString(publicKey); err != nil {
-		log.Printf("Decode error: %+v", err)
-	} else {
-		cHNPub = cHNPubTemp
-	}
-
-	fmt.Printf("\nPrivate Key: %x\n", cHNPriv) //not used anywhere, because we only use our OQS client object.
-	fmt.Printf("\nPublic Key: %x\n", cHNPub)
+	// fmt.Printf("\nPrivate Key: %x\n", cHNPriv) //not used anywhere, because we only use our kem client.
+	// fmt.Printf("\nPublic Key: %x\n", cHNPub)
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
 
@@ -389,7 +389,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	} else {
 		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
-		logger.Util3GPPLog.Infof("\n Shared secret: %x \n", decryptSharedKeyTmp)
+		// logger.Util3GPPLog.Infof("\n Shared secret: %x \n", decryptSharedKeyTmp)
 		decryptSharedKey = decryptSharedKeyTmp
 	}
 
@@ -402,20 +402,20 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	*/
 
-	kdfKey := AnsiX963KDF(decryptSharedKey, cHNPub, ProfileCEncKeyLen, ProfileCMacKeyLen, ProfileCHashLen)
+	kdfKey := AnsiX963KDF(decryptSharedKey, eHNPub, ProfileEEncKeyLen, ProfileEMacKeyLen, ProfileEHashLen)
 	fmt.Printf("\n %x \n", kdfKey)
 
-	decryptEncKey := kdfKey[:ProfileCEncKeyLen]
+	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
 	decryptIcb := kdfKey[16:32]
 	decryptMacKey := kdfKey[32:]
 
-	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
-	fmt.Printf("\n %d", len(kdfKey))
+	// fmt.Printf("\nEnc key: %x\n", decryptEncKey)
+	// fmt.Printf("\n %d", len(kdfKey))
 
-	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileCMacLen)
+	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileEMacLen)
 
-	fmt.Printf("\n Decrypt mac tag: %x\n", decryptMacTag)
-	fmt.Printf("\n received mac tag: %x\n", decryptMac)
+	// fmt.Printf("\n Decrypt mac tag: %x\n", decryptMacTag)
+	// fmt.Printf("\n received mac tag: %x\n", decryptMac)
 
 	if bytes.Equal(decryptMacTag, decryptMac) {
 
@@ -423,7 +423,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	} else {
 
 		logger.Util3GPPLog.Errorln("decryption MAC failed")
-		// return "", fmt.Errorf("decryption MAC failed\n") // forgery may be involved
+		return "", fmt.Errorf("decryption MAC failed\n") // forgery may be involved
 
 	}
 
@@ -445,7 +445,7 @@ const typeIMSI = "0"
 const imsiPrefix = "imsi-"
 const profileAScheme = "1"
 const profileBScheme = "2"
-const profileCScheme = "3"
+const profileEScheme = "5"
 
 func ToSupi(suci string, privateKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
@@ -561,25 +561,22 @@ func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.S
 
 	var res string
 
-	if scheme == profileCScheme {
-		profileCResult, err := profileC(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme)
+	if scheme == profileEScheme {
+		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme)
 		if err != nil {
 			return "", err
 		} else {
-			res = supiPrefix + mccMnc + profileCResult
+			res = supiPrefix + mccMnc + profileEResult
 		}
 	} else { // NULL scheme
 		res = supiPrefix + mccMnc + suciPart[len(suciPart)-1]
 	}
-
-	// everything successful, print the logs
-
 	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 	logger.Util3GPPLog.Infof("| %-63s |\n", "Coran Labs Private & Public Key configured")
 	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
 
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "SUCI successfully received", "")
-	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", scheme)
+	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "Scheme", "Kyber with QRNG (Profile E)")
 	logger.Util3GPPLog.Infof("| %-30s | %-30s |\n", "MccMnc", mccMnc)
 
 	logger.Util3GPPLog.Infof("+" + strings.Repeat("-", 70) + "+\n")
