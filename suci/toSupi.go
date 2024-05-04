@@ -417,8 +417,8 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 	fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileCEncKeyLen]
-	decryptIcb := kdfKey[16:32]
-	decryptMacKey := kdfKey[32:]
+	decryptIcb := kdfKey[32:48]
+	decryptMacKey := kdfKey[48:]
 
 	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
 	fmt.Printf("\n %d", len(kdfKey))
