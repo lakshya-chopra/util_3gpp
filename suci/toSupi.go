@@ -38,7 +38,7 @@ const ProfileBHashLen = 32   // octets
 
 // profile C
 const ProfileCMacKeyLen = 32 // octets
-const ProfileCEncKeyLen = 16 // octets
+const ProfileCEncKeyLen = 32 // octets //aes256
 const ProfileCIcbLen = 16    // octets
 const ProfileCMacLen = 8     // octets
 const ProfileCHashLen = 32   // octets
@@ -145,6 +145,17 @@ func Aes128ctr(input, encKey, icb []byte) []byte {
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
 		log.Printf("AES128 CTR error %+v", err)
+	}
+	stream := cipher.NewCTR(block, icb)
+	stream.XORKeyStream(output, input)
+	// fmt.Printf("aes input: %x %x %x\naes output: %x\n", input, encKey, icb, output)
+	return output
+}
+func Aes256ctr(input, encKey, icb []byte) []byte {
+	output := make([]byte, len(input))
+	block, err := aes.NewCipher(encKey) //32 bytes -> aes256 (automatically)
+	if err != nil {
+		log.Printf("AES256 CTR error %+v", err)
 	}
 	stream := cipher.NewCTR(block, icb)
 	stream.XORKeyStream(output, input)
@@ -427,7 +438,7 @@ func profileC(input string, supiType string, privateKey string, publicKey string
 
 	}
 
-	decryptPlainText := Aes128ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
+	decryptPlainText := Aes256ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
 
 	logger.Util3GPPLog.Infof("\nDecryption succcessful!\n")
 
