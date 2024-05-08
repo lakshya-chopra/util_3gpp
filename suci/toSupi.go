@@ -388,7 +388,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 
 func profileE(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 
-	logger.Util3GPPLog.Infof("\nSuciToSupi Profile C\n")
+	logger.Util3GPPLog.Infof("\nSuciToSupi Profile E\n")
 
 	/* concealed part of suci, here we only have MAC tag & a CipherTEXT */
 
