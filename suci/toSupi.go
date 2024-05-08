@@ -180,6 +180,45 @@ func AnsiX963KDF(sharedKey, publicKey []byte, profileEncKeyLen, profileMacKeyLen
 	return kdfKey
 }
 
+// modified KDF:
+func AnsiX963KDF_2(sharedKey, publicKey []byte, keyLenBytes int) []byte {
+
+	// initializing a counter buffer of 4 bytes
+
+	var counter uint32 = 0x00000001 //8 digits -> 4 bytes
+	var kdfKey []byte
+
+	// hash_len := sha256.Size
+	outlen := 0
+
+	for keyLenBytes > outlen {
+
+		//make a byte slice of 4 bytes:
+		counterBytes := make([]byte, 4)
+		hasher := sha256.New()
+
+		binary.BigEndian.PutUint32(counterBytes, counter)
+
+		fmt.Printf("counterBytes: %x\n", counterBytes)
+
+		// tmpK := sha256.Sum256(append(append(sharedKey,counterBytes...),publicKey...))
+		// sliceK := tmpK[:]
+		hasher.Write(sharedKey)
+		hasher.Write(counterBytes)
+		hasher.Write(publicKey)
+
+		hash := hasher.Sum(nil)
+
+		kdfKey = append(kdfKey, hash...)
+		counter++
+		outlen += len(hash)
+
+	}
+	fmt.Println("Size of KDF key: ", len(kdfKey))
+	return kdfKey[0:keyLenBytes]
+
+}
+
 func swapNibbles(input []byte) []byte {
 	output := make([]byte, len(input))
 	for i, b := range input {
@@ -413,7 +452,7 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 
 	*/
 
-	kdfKey := AnsiX963KDF(decryptSharedKey, eHNPub, ProfileEEncKeyLen, ProfileEMacKeyLen, ProfileEHashLen)
+	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNPub, 80)
 	fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
@@ -456,7 +495,7 @@ const typeIMSI = "0"
 const imsiPrefix = "imsi-"
 const profileAScheme = "1"
 const profileBScheme = "2"
-const profileEScheme = "5" 
+const profileEScheme = "5"
 
 func ToSupi(suci string, privateKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
