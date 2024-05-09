@@ -199,7 +199,7 @@ func AnsiX963KDF_2(sharedKey, publicKey []byte, keyLenBytes int) []byte {
 
 		binary.BigEndian.PutUint32(counterBytes, counter)
 
-		fmt.Printf("counterBytes: %x\n", counterBytes)
+		// fmt.Printf("counterBytes: %x\n", counterBytes)
 
 		// tmpK := sha256.Sum256(append(append(sharedKey,counterBytes...),publicKey...))
 		// sliceK := tmpK[:]
@@ -214,7 +214,7 @@ func AnsiX963KDF_2(sharedKey, publicKey []byte, keyLenBytes int) []byte {
 		outlen += len(hash)
 
 	}
-	fmt.Println("Size of KDF key: ", len(kdfKey))
+	// fmt.Println("Size of KDF key: ", len(kdfKey))
 	return kdfKey[0:keyLenBytes]
 
 }
@@ -411,7 +411,7 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 	decryptMac := s[len(s)-ProfileEMacLen:]                       //get the mac tag sent by the UE.
 
 	fmt.Printf("\nCipher received: %x\n", decryptCipherText)
-	fmt.Printf("\nMSIN received: %x\n", concealedMsin)
+	// fmt.Printf("\nMSIN received: %x\n", concealedMsin)
 
 	//getting the Prof E  Home Network Priv Key
 	var eHNPriv []byte
@@ -435,16 +435,16 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 
 	if decryptSharedKeyTmp, err := decapsulate(privateKey, []byte(decryptCipherText), kem_scheme); err != nil {
 		log.Printf("Decaps error: %+v", err)
-		return "", fmt.Errorf("\n Decaps failed \n")
+		return "", fmt.Errorf("\nDecaps failed \n")
 
 	} else {
 		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
-		logger.Util3GPPLog.Infof("\n Shared secret: %x \n", decryptSharedKeyTmp)
+		logger.Util3GPPLog.Infof("\nShared secret: %x \n", decryptSharedKeyTmp)
 		decryptSharedKey = decryptSharedKeyTmp
 	}
 
 	/*
-		    Here, we are basically generating an AES128 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
+		    Here, we are basically generating an AES256 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
 
 			  We can use CRYSTALS-Dilithium instead of HMAC too, there our Shared Secret only will serve as the Enc & Dec key.
 
@@ -453,19 +453,20 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 	*/
 
 	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNPub, 80)
-	fmt.Printf("\n %x \n", kdfKey)
+	// fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
 	decryptIcb := kdfKey[32:48]
 	decryptMacKey := kdfKey[48:]
 
 	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
-	fmt.Printf("\n %d", len(kdfKey))
+	// fmt.Printf("\n %d", len(kdfKey))
+	fmt.Printf("\nMac key: %x\n", decryptMacKey)
 
 	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileEMacLen)
 
-	fmt.Printf("\n Decrypt mac tag: %x\n", decryptMacTag)
-	fmt.Printf("\n received mac tag: %x\n", decryptMac)
+	fmt.Printf("\nDecrypt mac tag: %x\n", decryptMacTag)
+	fmt.Printf("\nReceived mac tag: %x\n", decryptMac)
 
 	if bytes.Equal(decryptMacTag, decryptMac) {
 
@@ -612,6 +613,7 @@ func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.S
 	var res string
 
 	if scheme == profileEScheme {
+		logger.Util3GPPLog.Infof("\nProtection Scheme: %s\n", scheme)
 		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme)
 		if err != nil {
 			return "", err
