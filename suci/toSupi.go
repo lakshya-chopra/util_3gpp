@@ -386,7 +386,7 @@ func profileB(input, supiType, privateKey string) (string, error) {
 	return calcSchemeResult(decryptPlainText, supiType), nil
 }
 
-func profileE(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
+func profileE(input string, supiType string, kyberPrivateKey string, kyberPublicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
 
 	logger.Util3GPPLog.Infof("\nSuciToSupi Profile E\n")
 
@@ -406,53 +406,83 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 		return "", fmt.Errorf("suci input too short\n")
 	}
 
+	ephPubKeyLen := 32
+	decryptEphPubKey := s[:ephPubKeyLen]
 	decryptCipherText := s[:ProfileECipherLen]
-	concealedMsin := s[ProfileECipherLen : len(s)-ProfileEMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
+	concealedMsin := s[ProfileECipherLen : len(s)-ProfileEMacLen] //4 things have been sent: ecc_eph_pubKey (32 bytes) + cipher + msin (encrypted) + mac tag
 	decryptMac := s[len(s)-ProfileEMacLen:]                       //get the mac tag sent by the UE.
 
 	fmt.Printf("\nCipher received: %x\n", decryptCipherText)
 	// fmt.Printf("\nMSIN received: %x\n", concealedMsin)
 
-	//getting the Prof E  Home Network Priv Key
-	var eHNPriv []byte
-	if eHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
+	//getting the Prof E  Home Network Kyber & ECC Priv & Pub Key
+	var eHNKyberPriv []byte
+	if eHNKyberPrivTmp, err := hex.DecodeString(kyberPrivateKey); err != nil {
 		log.Printf("Decode error: %+v", err)
 	} else {
-		eHNPriv = eHNPrivTmp
+		eHNKyberPriv = eHNKyberPrivTmp
 	}
 
-	var eHNPub []byte
-	if eHNPubTemp, err := hex.DecodeString(publicKey); err != nil {
+	var eHNKyberPub []byte
+	if eHNKyberPubTemp, err := hex.DecodeString(kyberPublicKey); err != nil {
 		log.Printf("Decode error: %+v", err)
 	} else {
-		eHNPub = eHNPubTemp
+		eHNKyberPub = eHNKyberPubTemp
 	}
 
-	fmt.Printf("\nPrivate Key: %x\n", eHNPriv) //not used anywhere, because we only use our OQS client object.
-	fmt.Printf("\nPublic Key: %x\n", eHNPub)
+	var eHNECCPriv []byte
+	if eHNKyberPrivTmp, err := hex.DecodeString(eccPrivKey); err != nil {
+		log.Printf("Decode error: %+v", err)
+	} else {
+		eHNKyberPriv = eHNKyberPrivTmp
+	}
 
-	var decryptSharedKey []byte // we obtain this on decapsulation.
+	var eHNECCPub []byte
+	if eHNECCPubTemp, err := hex.DecodeString(eccPubKey); err != nil {
+		log.Printf("Decode error: %+v", err)
+	} else {
+		eHNECCPub = eHNECCPubTemp
+	}
 
-	if decryptSharedKeyTmp, err := decapsulate(privateKey, []byte(decryptCipherText), kem_scheme); err != nil {
+	fmt.Printf("\nKyber Private Key: %x\n", eHNKyberPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nKyber Public Key: %x\n", eHNKyberPub)
+
+	fmt.Printf("\nECC Private Key: %x\n", eHNECCPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nECC Public Key: %x\n", eHNECCPub)
+
+	/* Kyber decaps: */
+	var decryptKyberSharedKey []byte // we obtain this on decapsulation.
+	if decryptSharedKeyTmp, err := decapsulate(kyberPrivateKey, []byte(decryptCipherText), kem_scheme); err != nil {
 		log.Printf("Decaps error: %+v", err)
 		return "", fmt.Errorf("\nDecaps failed \n")
 
 	} else {
 		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
 		logger.Util3GPPLog.Infof("\nShared secret: %x \n", decryptSharedKeyTmp)
-		decryptSharedKey = decryptSharedKeyTmp
+		decryptKyberSharedKey = decryptSharedKeyTmp
 	}
 
 	/*
-		    Here, we are basically generating an AES256 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
+		Here, we are basically generating an AES256 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
 
-			  We can use CRYSTALS-Dilithium instead of HMAC too, there our Shared Secret only will serve as the Enc & Dec key.
-
-			  KDF -> MAC Key generated -> HMAC -> Mac tag, we obtain this mac tag from our suci & then we compute it from our shared secret & then check whether they both are same or not.
+		We can use CRYSTALS-Dilithium instead of HMAC too, there our Shared Secret only will serve as the Enc & Dec key.
+		KDF -> MAC Key generated -> HMAC -> Mac tag, we obtain this mac tag from our suci & then we compute it from our shared secret & then check whether they both are same or not.
 
 	*/
 
-	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNPub, 80)
+	/* ECC shared secret computation: */
+	var decryptECCSharedKey []byte
+	if decryptECCSharedKeyTmp, err := curve25519.X25519(eHNECCPriv, []byte(decryptEphPubKey)); err != nil {
+		log.Printf("X25519 error: %+v", err)
+	} else {
+		decryptECCSharedKey = decryptECCSharedKeyTmp
+	}
+
+	/* KDF */
+
+	decryptSharedKey := append(decryptECCSharedKey, decryptKyberSharedKey...)
+
+	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80)
 	// fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
@@ -580,7 +610,7 @@ func ToSupi(suci string, privateKey string) (string, error) {
 
 }
 
-func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
+func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
 	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
 
@@ -614,7 +644,7 @@ func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.S
 
 	if scheme == profileEScheme {
 		logger.Util3GPPLog.Infof("\nProtection Scheme: %s\n", scheme)
-		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme)
+		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme, eccPrivKey, eccPubKey)
 		if err != nil {
 			return "", err
 		} else {
