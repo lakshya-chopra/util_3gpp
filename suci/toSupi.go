@@ -407,10 +407,10 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 	}
 
 	ephPubKeyLen := 32
-	decryptEphPubKey := s[:ephPubKeyLen]
-	decryptCipherText := s[:ProfileECipherLen]
-	concealedMsin := s[ProfileECipherLen : len(s)-ProfileEMacLen] //4 things have been sent: ecc_eph_pubKey (32 bytes) + cipher + msin (encrypted) + mac tag
-	decryptMac := s[len(s)-ProfileEMacLen:]                       //get the mac tag sent by the UE.
+	decryptEphPubKey := s[:ephPubKeyLen] // ECC 32 byte Ephemeral Key sent by the UE
+	decryptCipherText := s[ephPubKeyLen : ephPubKeyLen+ProfileECipherLen]
+	concealedMsin := s[ProfileECipherLen+ephPubKeyLen : len(s)-ProfileEMacLen] //4 things have been sent: ecc_eph_pubKey (32 bytes) + cipher + msin (encrypted) + mac tag
+	decryptMac := s[len(s)-ProfileEMacLen:]                                    //get the mac tag sent by the UE.
 
 	fmt.Printf("\nCipher received: %x\n", decryptCipherText)
 	// fmt.Printf("\nMSIN received: %x\n", concealedMsin)
@@ -430,11 +430,11 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 		eHNKyberPub = eHNKyberPubTemp
 	}
 
-	var eHNECCPriv []byte
-	if eHNKyberPrivTmp, err := hex.DecodeString(eccPrivKey); err != nil {
+	var eHNECCPriv []byte // Home network's
+	if eHNECCPrivTmp, err := hex.DecodeString(eccPrivKey); err != nil {
 		log.Printf("Decode error: %+v", err)
 	} else {
-		eHNKyberPriv = eHNKyberPrivTmp
+		eHNECCPriv = eHNECCPrivTmp
 	}
 
 	var eHNECCPub []byte
@@ -480,9 +480,9 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 
 	/* KDF */
 
-	decryptSharedKey := append(decryptECCSharedKey, decryptKyberSharedKey...)
+	decryptSharedKey := append(decryptECCSharedKey, decryptKyberSharedKey...) //note the order.
 
-	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80)
+	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80) 
 	// fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
@@ -610,7 +610,8 @@ func ToSupi(suci string, privateKey string) (string, error) {
 
 }
 
-func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
+func ToSupi_2(suci string, kyberPrivateKey string, kyberPublicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
+
 	suciPart := strings.Split(suci, "-")
 	// logger.Util3GPPLog.Infof("suciPart %s\n", suciPart)
 
@@ -644,7 +645,7 @@ func ToSupi_2(suci string, privateKey string, publicKey string, kem_scheme kem.S
 
 	if scheme == profileEScheme {
 		logger.Util3GPPLog.Infof("\nProtection Scheme: %s\n", scheme)
-		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], privateKey, publicKey, kem_scheme, eccPrivKey, eccPubKey)
+		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], kyberPrivateKey, kyberPublicKey, kem_scheme, eccPrivKey, eccPubKey)
 		if err != nil {
 			return "", err
 		} else {
