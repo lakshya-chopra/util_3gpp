@@ -471,8 +471,11 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 	*/
 
 	/* ECC shared secret computation: */
+
+	fmt.Printf("\nEph Pub Key: %s\n",hex.EncodeToString(decryptEphPubKey))
+
 	var decryptECCSharedKey []byte
-	if decryptECCSharedKeyTmp, err := curve25519.X25519(eHNECCPriv, []byte(decryptEphPubKey)); err != nil {
+	if decryptECCSharedKeyTmp, err := curve25519.X25519(eHNECCPriv,decryptEphPubKey); err != nil {
 		log.Printf("X25519 error: %+v", err)
 	} else {
 		decryptECCSharedKey = decryptECCSharedKeyTmp
