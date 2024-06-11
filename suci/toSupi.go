@@ -458,7 +458,7 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 
 	} else {
 		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
-		logger.Util3GPPLog.Infof("\nShared secret: %x \n", decryptSharedKeyTmp)
+		logger.Util3GPPLog.Infof("\n Kyber Shared secret: %x \n", decryptSharedKeyTmp)
 		decryptKyberSharedKey = decryptSharedKeyTmp
 	}
 
@@ -476,13 +476,14 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 		log.Printf("X25519 error: %+v", err)
 	} else {
 		decryptECCSharedKey = decryptECCSharedKeyTmp
+		logger.Util3GPPLog.Infof("\n ECC Shared secret: %x \n", decryptECCSharedKeyTmp)
 	}
 
 	/* KDF */
 
 	decryptSharedKey := append(decryptECCSharedKey, decryptKyberSharedKey...) //note the order.
 
-	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80) 
+	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80)
 	// fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
