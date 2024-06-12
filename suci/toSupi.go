@@ -386,11 +386,107 @@ func profileB(input, supiType, privateKey string) (string, error) {
 	return calcSchemeResult(decryptPlainText, supiType), nil
 }
 
-func profileE(input string, supiType string, kyberPrivateKey string, kyberPublicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
+func profileE(input string, supiType string, privateKey string, publicKey string, kem_scheme kem.Scheme) (string, error) {
 
 	logger.Util3GPPLog.Infof("\nSuciToSupi Profile E\n")
 
 	/* concealed part of suci, here we only have MAC tag & a CipherTEXT */
+
+	s, hexDecodeErr := hex.DecodeString(input)
+	if hexDecodeErr != nil {
+		logger.Util3GPPLog.Errorln("hex DecodeString error")
+		return "", hexDecodeErr
+	}
+
+	// ProfileEPubKeyLen := 800 // 800 bytes : Kyber 512
+	ProfileECipherLen := 768 //we use HMAC-SHA256 on our cipher text.
+
+	if len(s) < (ProfileECipherLen + ProfileEMacLen) {
+		logger.Util3GPPLog.Errorln("len of input data is too short!")
+		return "", fmt.Errorf("suci input too short\n")
+	}
+
+	decryptCipherText := s[:ProfileECipherLen]
+	concealedMsin := s[ProfileECipherLen : len(s)-ProfileEMacLen] //3 things have been sent: cipher + msin (encrypted) + mac tag
+	decryptMac := s[len(s)-ProfileEMacLen:]                       //get the mac tag sent by the UE.
+
+	fmt.Printf("\nCipher received: %x\n", decryptCipherText)
+
+	//getting the Prof E  Home Network Priv Key
+	var eHNPriv []byte
+	if eHNPrivTmp, err := hex.DecodeString(privateKey); err != nil {
+		log.Printf("Decode error: %+v", err)
+	} else {
+		eHNPriv = eHNPrivTmp
+	}
+
+	var eHNPub []byte
+	if eHNPubTemp, err := hex.DecodeString(publicKey); err != nil {
+		log.Printf("Decode error: %+v", err)
+	} else {
+		eHNPub = eHNPubTemp
+	}
+
+	fmt.Printf("\nPrivate Key: %x\n", eHNPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nPublic Key: %x\n", eHNPub)
+
+	var decryptSharedKey []byte // we obtain this on decapsulation.
+
+	if decryptSharedKeyTmp, err := decapsulate(privateKey, []byte(decryptCipherText), kem_scheme); err != nil {
+		log.Printf("Decaps error: %+v", err)
+		return "", fmt.Errorf("\nDecaps failed \n")
+
+	} else {
+		logger.Util3GPPLog.Infof("\nDecapsulation Successful\n")
+		logger.Util3GPPLog.Infof("\nShared secret: %x \n", decryptSharedKeyTmp)
+		decryptSharedKey = decryptSharedKeyTmp
+	}
+
+	/*
+		Here, we are basically generating an AES256 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
+
+		We can use CRYSTALS-Dilithium instead of HMAC too, there our Shared Secret only will serve as the Enc & Dec key.
+
+		KDF -> MAC Key generated -> HMAC -> Mac tag, we obtain this mac tag from our suci & then we compute it from our shared secret & then check whether they both are same or not.
+
+	*/
+
+	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNPub, 80)
+	// fmt.Printf("\n %x \n", kdfKey)
+
+	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
+	decryptIcb := kdfKey[32:48]
+	decryptMacKey := kdfKey[48:]
+
+	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
+	fmt.Printf("\nMac key: %x\n", decryptMacKey)
+
+	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileEMacLen)
+
+	fmt.Printf("\nDecrypt mac tag: %x\n", decryptMacTag)
+	fmt.Printf("\nReceived mac tag: %x\n", decryptMac)
+
+	if bytes.Equal(decryptMacTag, decryptMac) {
+
+		logger.Util3GPPLog.Infoln("decryption MAC match ✅")
+	} else {
+
+		logger.Util3GPPLog.Errorln("decryption MAC failed")
+		// return "", fmt.Errorf("decryption MAC failed\n") // forgery may be involved
+
+	}
+
+	decryptPlainText := Aes256ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
+
+	logger.Util3GPPLog.Infof("\nDecryption succcessful!\n")
+
+	return calcSchemeResult(decryptPlainText, supiType), nil
+
+}
+
+func profileF(input string, supiType string, kyberPrivateKey string, kyberPublicKey string, kem_scheme kem.Scheme, eccPrivKey string, eccPubKey string) (string, error) {
+
+	logger.Util3GPPLog.Infof("\nSuciToSupi Profile F\n")
 
 	s, hexDecodeErr := hex.DecodeString(input)
 	if hexDecodeErr != nil {
@@ -444,10 +540,10 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 		eHNECCPub = eHNECCPubTemp
 	}
 
-	fmt.Printf("\nKyber Private Key: %x\n", eHNKyberPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nKyber Private Key: %x\n", eHNKyberPriv)
 	fmt.Printf("\nKyber Public Key: %x\n", eHNKyberPub)
 
-	fmt.Printf("\nECC Private Key: %x\n", eHNECCPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nECC Private Key: %x\n", eHNECCPriv)
 	fmt.Printf("\nECC Public Key: %x\n", eHNECCPub)
 
 	/* Kyber decaps: */
@@ -461,21 +557,12 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 		logger.Util3GPPLog.Infof("\n Kyber Shared secret: %x \n", decryptSharedKeyTmp)
 		decryptKyberSharedKey = decryptSharedKeyTmp
 	}
-
-	/*
-		Here, we are basically generating an AES256 (CTR mode) encryption key from the concatenation of our shared key & our public key, which also generates the Mac, the Mac Key obtained is verified with the mac key sent in the SUCI.
-
-		We can use CRYSTALS-Dilithium instead of HMAC too, there our Shared Secret only will serve as the Enc & Dec key.
-		KDF -> MAC Key generated -> HMAC -> Mac tag, we obtain this mac tag from our suci & then we compute it from our shared secret & then check whether they both are same or not.
-
-	*/
-
 	/* ECC shared secret computation: */
 
-	fmt.Printf("\nEph Pub Key: %s\n",hex.EncodeToString(decryptEphPubKey))
+	fmt.Printf("\nEph Pub Key: %s\n", hex.EncodeToString(decryptEphPubKey))
 
 	var decryptECCSharedKey []byte
-	if decryptECCSharedKeyTmp, err := curve25519.X25519(eHNECCPriv,decryptEphPubKey); err != nil {
+	if decryptECCSharedKeyTmp, err := curve25519.X25519(eHNECCPriv, decryptEphPubKey); err != nil {
 		log.Printf("X25519 error: %+v", err)
 	} else {
 		decryptECCSharedKey = decryptECCSharedKeyTmp
@@ -483,11 +570,9 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 	}
 
 	/* KDF */
-
 	decryptSharedKey := append(decryptECCSharedKey, decryptKyberSharedKey...) //note the order.
 
 	kdfKey := AnsiX963KDF_2(decryptSharedKey, eHNECCPub, 80)
-	// fmt.Printf("\n %x \n", kdfKey)
 
 	decryptEncKey := kdfKey[:ProfileEEncKeyLen]
 	decryptIcb := kdfKey[32:48]
@@ -508,11 +593,9 @@ func profileE(input string, supiType string, kyberPrivateKey string, kyberPublic
 	} else {
 
 		logger.Util3GPPLog.Errorln("decryption MAC failed")
-		// return "", fmt.Errorf("decryption MAC failed\n") // forgery may be involved
-
 	}
 
-	decryptPlainText := Aes256ctr(concealedMsin, decryptEncKey, decryptIcb) //here, we decrypt using the shared secret using the key we just derived, this is our MSIN value..... We pass this onto our calcSchemeResult to properly display the results.
+	decryptPlainText := Aes256ctr(concealedMsin, decryptEncKey, decryptIcb)
 
 	logger.Util3GPPLog.Infof("\nDecryption succcessful!\n")
 
@@ -531,6 +614,7 @@ const imsiPrefix = "imsi-"
 const profileAScheme = "1"
 const profileBScheme = "2"
 const profileEScheme = "5"
+const profileFScheme = "6"
 
 func ToSupi(suci string, privateKey string) (string, error) {
 	suciPart := strings.Split(suci, "-")
@@ -649,12 +733,21 @@ func ToSupi_2(suci string, kyberPrivateKey string, kyberPublicKey string, kem_sc
 
 	if scheme == profileEScheme {
 		logger.Util3GPPLog.Infof("\nProtection Scheme: %s\n", scheme)
-		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], kyberPrivateKey, kyberPublicKey, kem_scheme, eccPrivKey, eccPubKey)
+		profileEResult, err := profileE(suciPart[len(suciPart)-1], suciPart[supiTypePlace], kyberPrivateKey, kyberPublicKey, kem_scheme)
 		if err != nil {
 			return "", err
 		} else {
 			res = supiPrefix + mccMnc + profileEResult
 		}
+	} else if scheme == profileFScheme {
+		logger.Util3GPPLog.Infof("\nProtection Scheme: %s\n", scheme)
+		profileFResult, err := profileF(suciPart[len(suciPart)-1], suciPart[supiTypePlace], kyberPrivateKey, kyberPublicKey, kem_scheme, eccPrivKey, eccPubKey)
+		if err != nil {
+			return "", err
+		} else {
+			res = supiPrefix + mccMnc + profileFResult
+		}
+
 	} else { // NULL scheme
 		res = supiPrefix + mccMnc + suciPart[len(suciPart)-1]
 	}
