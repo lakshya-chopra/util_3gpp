@@ -399,7 +399,7 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 	}
 
 	// ProfileEPubKeyLen := 800 // 800 bytes : Kyber 512
-	ProfileECipherLen := 768 //we use HMAC-SHA256 on our cipher text.
+	ProfileECipherLen := 768
 
 	if len(s) < (ProfileECipherLen + ProfileEMacLen) {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
@@ -427,7 +427,7 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 		eHNPub = eHNPubTemp
 	}
 
-	fmt.Printf("\nPrivate Key: %x\n", eHNPriv) //not used anywhere, because we only use our OQS client object.
+	fmt.Printf("\nPrivate Key: %x\n", eHNPriv)
 	fmt.Printf("\nPublic Key: %x\n", eHNPub)
 
 	var decryptSharedKey []byte // we obtain this on decapsulation.
@@ -461,7 +461,7 @@ func profileE(input string, supiType string, privateKey string, publicKey string
 	fmt.Printf("\nEnc key: %x\n", decryptEncKey)
 	fmt.Printf("\nMac key: %x\n", decryptMacKey)
 
-	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileEMacLen)
+	decryptMacTag := HmacSha256(concealedMsin, decryptMacKey, ProfileEMacLen) //we use HMAC-SHA256 on our concealed MSIN.
 
 	fmt.Printf("\nDecrypt mac tag: %x\n", decryptMacTag)
 	fmt.Printf("\nReceived mac tag: %x\n", decryptMac)
@@ -494,8 +494,7 @@ func profileF(input string, supiType string, kyberPrivateKey string, kyberPublic
 		return "", hexDecodeErr
 	}
 
-	// ProfileEPubKeyLen := 800 // 800 bytes : Kyber 512
-	ProfileECipherLen := 768 //we use HMAC-SHA256 on our cipher text.
+	ProfileECipherLen := 768
 
 	if len(s) < (ProfileECipherLen + ProfileEMacLen) {
 		logger.Util3GPPLog.Errorln("len of input data is too short!")
